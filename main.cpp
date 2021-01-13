@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <unordered_map>
 #include<iostream>
+#include<string>
 #include <set>
 #include "header.h"
 #define ETH_SIZE 14
@@ -18,13 +19,16 @@ typedef struct pcktinfo{
 }pcktinfo;
 
 unordered_map<uint32_t, pcktinfo> iphashmap;
-set<uint32_t> keys;
+unordered_map<string, pcktinfo> ethhashmap;
+
+set<uint32_t> ipkeys;
+set<string> ethkeys;
 //packet.sniff_ip.in_addr.s_addr is uint32
 void usage() {
     printf("syntax: pcap-stl <filename>\n");
     printf("sample: pcap-stl test.pcap\n");
 }
-void insert(uint32_t ipaddr, int bytes, int status){
+void ipinsert(uint32_t ipaddr, int bytes, int status){
     auto pos=iphashmap.find(ipaddr);
     if(pos==iphashmap.end()){
         pcktinfo newpcktinfo={0,};
@@ -43,6 +47,36 @@ void insert(uint32_t ipaddr, int bytes, int status){
         break;
     }
 }
+void ethinsert(string macaddr, int bytes, int status){
+    auto pos=ethhashmap.find(macaddr);
+    if(pos==ethhashmap.end()){
+        pcktinfo newpcktinfo={0,};
+        ethhashmap[macaddr]=newpcktinfo;
+    }
+    switch (status)
+    {
+    case TX:
+        ethhashmap[macaddr].tx_packets++;
+        ethhashmap[macaddr].tx_bytes+=bytes;
+        break;
+    
+    case RX:
+        ethhashmap[macaddr].rx_packets++;
+        ethhashmap[macaddr].rx_bytes+=bytes;
+        break;
+    }
+}
+string mactostring(u_char macaddr[ETHER_ADDR_LEN]){
+	char buf[32]; // enough size
+	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
+		macaddr[0],
+		macaddr[1],
+		macaddr[2],
+		macaddr[3],
+		macaddr[4],
+		macaddr[5]);
+	return string(buf);
+}
 int readpackets(pcap_t* handle){
     struct pcap_pkthdr* header;
     const u_char* packet;
@@ -53,14 +87,16 @@ int readpackets(pcap_t* handle){
         printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
         exit(1);
     }
-    //initiailize components of packet
+    //ethernet area
     struct sniff_ethernet* eth_header=(struct sniff_ethernet*)packet;
+    string srcmac=mactostring(eth_header->ether_shost); string dstmac=mactostring(eth_header->ether_dhost);
+    ethkeys.insert(srcmac); ethkeys.insert(dstmac);
+    ethinsert(srcmac,header->caplen,TX); ethinsert(dstmac,header->caplen,RX);
+    //ip area
     struct sniff_ip* ip_header=(struct sniff_ip*)(packet+ETH_SIZE);
     size_ip = IP_HL(ip_header)*4;
-    keys.insert(ip_header->ip_src.s_addr);
-    keys.insert(ip_header->ip_dst.s_addr);
-    insert(ip_header->ip_src.s_addr,header->caplen,TX);
-    insert(ip_header->ip_dst.s_addr,header->caplen,RX);
+    ipkeys.insert(ip_header->ip_src.s_addr); ipkeys.insert(ip_header->ip_dst.s_addr);
+    ipinsert(ip_header->ip_src.s_addr,header->caplen,TX); ipinsert(ip_header->ip_dst.s_addr,header->caplen,RX);
     return res;
 }
 int main(int argc, char* argv[]) {
@@ -77,7 +113,16 @@ int main(int argc, char* argv[]) {
     }
     while (readpackets(handle)>0);
     pcap_close(handle);
-    for (auto iter = keys.begin(); iter != keys.end(); ++iter){
+    cout<<"--------------------------------------[ETHERNET]--------------------------------------"<<endl;
+    for (auto iter = ethkeys.begin(); iter != ethkeys.end(); ++iter){
+        pcktinfo temppcktinfo=ethhashmap[*iter];
+        string tempmac;
+        tempmac=*iter;
+        cout<<"MAC: "<<tempmac<<"\tTX_packets: "<<temppcktinfo.tx_packets<<"\tTX_bytes: "<<temppcktinfo.tx_bytes<<"\tRX_packets: "<<temppcktinfo.rx_packets<<"\tRX_bytes: "<<temppcktinfo.rx_bytes<<endl;
+    }
+    cout<<endl;
+    cout<<"----------------------------------------[IP]----------------------------------------"<<endl;
+    for (auto iter = ipkeys.begin(); iter != ipkeys.end(); ++iter){
         pcktinfo temppcktinfo=iphashmap[*iter];
         in_addr tempip;
         tempip.s_addr=*iter;
