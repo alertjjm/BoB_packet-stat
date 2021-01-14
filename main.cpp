@@ -6,34 +6,13 @@
 #include<string>
 #include <set>
 #include "header.h"
+#include "datastructure.h"
 #define ETH_SIZE 14
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define TX 1
-#define RX 0
-using namespace std;
-typedef struct pcktinfo{
-    int tx_packets;
-    int tx_bytes;
-    int rx_packets;
-    int rx_bytes;
-}pcktinfo;
-typedef struct tcpudpkey{
-    uint32_t ipaddr;
-    u_short portnum;
-    bool operator == (const tcpudpkey& r) const { return (ipaddr == r.ipaddr) && (portnum==r.portnum); }
-    bool operator < (const tcpudpkey& r) const { return (ipaddr < r.ipaddr) || ((ipaddr == r.ipaddr)&&(portnum<r.portnum)); }
-}tcpudpkey;
-namespace std {
-	template<>
-	struct hash<tcpudpkey> {
-		size_t operator() (const tcpudpkey & rhs) const {
-			size_t h1 = std::hash<std::uint32_t>{}(rhs.ipaddr);
-            size_t h2 = std::hash<u_short>{}(rhs.portnum);
-            return h1 ^ (h2 << 1);
-		}
-	};
-}
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
+
+using namespace std;
 unordered_map<uint32_t, pcktinfo> iphashmap;
 unordered_map<string, pcktinfo> ethhashmap;
 unordered_map<tcpudpkey, pcktinfo> tcphashmap;
@@ -43,10 +22,21 @@ set<uint32_t> ipkeys;
 set<string> ethkeys;
 set<tcpudpkey> tcpkeys;
 set<tcpudpkey> udpkeys;
+//conversation
+unordered_map<composipkey, pcktinfo> conviphashmap;
+unordered_map<composethkey, pcktinfo> convethhashmap;
+unordered_map<composetcpudpkey, pcktinfo> convtcphashmap;
+unordered_map<composetcpudpkey, pcktinfo> convudphashmap;
+
+set<composipkey> convipkeys;
+set<composethkey> convethkeys;
+set<composetcpudpkey> convtcpkeys;
+set<composetcpudpkey> convudpkeys;
+
 //packet.sniff_ip.in_addr.s_addr is uint32
 void usage() {
-    printf("syntax: pcap-stl <filename>\n");
-    printf("sample: pcap-stl test.pcap\n");
+    printf("syntax: packet-stat <filename>\n");
+    printf("sample: packet-stat test.pcap\n");
 }
 void ipinsert(uint32_t ipaddr, int bytes, int status){
     auto pos=iphashmap.find(ipaddr);
@@ -124,6 +114,82 @@ void udpinsert(tcpudpkey key, int bytes, int status){
         break;
     }
 }
+void convipinsert(composipkey key, int bytes, int status){
+    auto pos=conviphashmap.find(key);
+    if(pos==conviphashmap.end()){
+        pcktinfo newpcktinfo={0,};
+        conviphashmap[key]=newpcktinfo;
+    }
+    switch (status)
+    {
+    case TX:
+        conviphashmap[key].tx_packets++;
+        conviphashmap[key].tx_bytes+=bytes;
+        break;
+    
+    case RX:
+        conviphashmap[key].rx_packets++;
+        conviphashmap[key].rx_bytes+=bytes;
+        break;
+    }
+}
+void convethinsert(composethkey key, int bytes, int status){
+    auto pos=convethhashmap.find(key);
+    if(pos==convethhashmap.end()){
+        pcktinfo newpcktinfo={0,};
+        convethhashmap[key]=newpcktinfo;
+    }
+    switch (status)
+    {
+    case TX:
+        convethhashmap[key].tx_packets++;
+        convethhashmap[key].tx_bytes+=bytes;
+        break;
+    
+    case RX:
+        convethhashmap[key].rx_packets++;
+        convethhashmap[key].rx_bytes+=bytes;
+        break;
+    }
+}
+void convtcpinsert(composetcpudpkey key, int bytes, int status){
+    auto pos=convtcphashmap.find(key);
+    if(pos==convtcphashmap.end()){
+        pcktinfo newpcktinfo={0,};
+        convtcphashmap[key]=newpcktinfo;
+    }
+    switch (status)
+    {
+    case TX:
+        convtcphashmap[key].tx_packets++;
+        convtcphashmap[key].tx_bytes+=bytes;
+        break;
+    
+    case RX:
+        convtcphashmap[key].rx_packets++;
+        convtcphashmap[key].rx_bytes+=bytes;
+        break;
+    }
+}
+void convudpinsert(composetcpudpkey key, int bytes, int status){
+    auto pos=convudphashmap.find(key);
+    if(pos==convudphashmap.end()){
+        pcktinfo newpcktinfo={0,};
+        convudphashmap[key]=newpcktinfo;
+    }
+    switch (status)
+    {
+    case TX:
+        convudphashmap[key].tx_packets++;
+        convudphashmap[key].tx_bytes+=bytes;
+        break;
+    
+    case RX:
+        convudphashmap[key].rx_packets++;
+        convudphashmap[key].rx_bytes+=bytes;
+        break;
+    }
+}
 string mactostring(u_char macaddr[ETHER_ADDR_LEN]){
 	char buf[32]; // enough size
 	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
@@ -136,6 +202,7 @@ string mactostring(u_char macaddr[ETHER_ADDR_LEN]){
 	return string(buf);
 }
 int readpackets(pcap_t* handle){
+    int status;
     struct pcap_pkthdr* header;
     const u_char* packet;
     u_int size_ip,size_tcp,size_payload; //size of the headers and payload
@@ -150,6 +217,14 @@ int readpackets(pcap_t* handle){
     string srcmac=mactostring(eth_header->ether_shost); string dstmac=mactostring(eth_header->ether_dhost);
     ethkeys.insert(srcmac); ethkeys.insert(dstmac);
     ethinsert(srcmac,header->caplen,TX); ethinsert(dstmac,header->caplen,RX);
+    //conversation
+    if(srcmac==MIN(srcmac,dstmac))
+        status=TX;
+    else status=RX;
+    composethkey tempconvethkey={MIN(srcmac,dstmac),MAX(srcmac,dstmac)};
+    convethkeys.insert(tempconvethkey);
+    convethinsert(tempconvethkey,header->caplen,status);
+    
     //ipv4 area
     if(ntohs(eth_header->ether_type)!=0x0800)
         return res;
@@ -157,6 +232,14 @@ int readpackets(pcap_t* handle){
     size_ip = IP_HL(ip_header)*4;
     ipkeys.insert(ip_header->ip_src.s_addr); ipkeys.insert(ip_header->ip_dst.s_addr);
     ipinsert(ip_header->ip_src.s_addr,header->caplen,TX); ipinsert(ip_header->ip_dst.s_addr,header->caplen,RX);
+    //conversation
+    if(ip_header->ip_src.s_addr==MIN(ip_header->ip_src.s_addr,ip_header->ip_dst.s_addr))
+        status=TX;
+    else status=RX;
+    composipkey tempconvipkey={MIN(ip_header->ip_src.s_addr,ip_header->ip_dst.s_addr),MAX(ip_header->ip_src.s_addr,ip_header->ip_dst.s_addr)};
+    convipkeys.insert(tempconvipkey);
+    convipinsert(tempconvipkey,header->caplen,status);
+    
     //tcp area
     if(ip_header->ip_p==IPPROTO_TCP){ //if pckt is tcp
         const struct sniff_tcp* tcp_header=(struct sniff_tcp*)(packet+ETH_SIZE+size_ip);
@@ -165,6 +248,13 @@ int readpackets(pcap_t* handle){
         tcpkeys.insert(srctcpkey); tcpkeys.insert(dsttcpkey);
         tcpinsert(srctcpkey,header->caplen,TX);
         tcpinsert(dsttcpkey,header->caplen,RX);
+        //conversation
+        if(srctcpkey==MIN(srctcpkey,dsttcpkey))
+            status=TX;
+        else status=RX;
+        composetcpudpkey tempconvtcpkey={MIN(srctcpkey,dsttcpkey),MAX(srctcpkey,dsttcpkey)};
+        convtcpkeys.insert(tempconvtcpkey);
+        convtcpinsert(tempconvtcpkey,header->caplen,status);
     }
     else if(ip_header->ip_p==IPPROTO_UDP){//if pckt is udp
         const struct sniff_udp* udp_header=(struct sniff_udp*)(packet+ETH_SIZE+size_ip);
@@ -173,6 +263,13 @@ int readpackets(pcap_t* handle){
         udpkeys.insert(srcudpkey); udpkeys.insert(dstudpkey);
         udpinsert(srcudpkey,header->caplen,TX);
         udpinsert(dstudpkey,header->caplen,RX);
+        //conversation
+        if(srcudpkey==MIN(srcudpkey,dstudpkey))
+            status=TX;
+        else status=RX;
+        composetcpudpkey tempconvudpkey={MIN(srcudpkey,dstudpkey),MAX(srcudpkey,dstudpkey)};
+        convudpkeys.insert(tempconvudpkey);
+        convudpinsert(tempconvudpkey,header->caplen,status);
     }
     else return res;
     return res;
@@ -214,5 +311,60 @@ int main(int argc, char* argv[]) {
         in_addr tempip;
         tempip.s_addr=(*iter).ipaddr;
         printf("IP: %s\tPort: %d\tTX_packets: %d\tTX_bytes: %d\tRX_packets: %d\tRX_bytes: %d\n", inet_ntoa(tempip),(*iter).portnum,temppcktinfo.tx_packets,temppcktinfo.tx_bytes,temppcktinfo.rx_packets,temppcktinfo.rx_bytes);
+    }
+    cout<<endl;
+    cout<<"----------------------------------------[UDP]----------------------------------------"<<endl;
+    for (auto iter = udpkeys.begin(); iter != udpkeys.end(); ++iter){
+        tcpudpkey tempkey=*iter;
+        pcktinfo temppcktinfo=udphashmap[tempkey];
+        in_addr tempip;
+        tempip.s_addr=(*iter).ipaddr;
+        printf("IP: %s\tPort: %d\tTX_packets: %d\tTX_bytes: %d\tRX_packets: %d\tRX_bytes: %d\n", inet_ntoa(tempip),(*iter).portnum,temppcktinfo.tx_packets,temppcktinfo.tx_bytes,temppcktinfo.rx_packets,temppcktinfo.rx_bytes);
+    }
+    cout<<endl;
+    cout<<endl;
+    cout<<"-Conversation-"<<endl;
+    cout<<"--------------------------------------[ETHERNET]--------------------------------------"<<endl;
+    for (auto iter = convethkeys.begin(); iter != convethkeys.end(); ++iter){
+        pcktinfo temppcktinfo=convethhashmap[*iter];
+        composethkey tempkey;
+        tempkey=*iter;
+        cout<<"AddressA: "<<tempkey.macA<<"\tAddressB: "<<tempkey.macB<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+    }
+    cout<<endl;
+    cout<<"----------------------------------------[IP]----------------------------------------"<<endl;
+    for (auto iter = convipkeys.begin(); iter != convipkeys.end(); ++iter){
+        pcktinfo temppcktinfo=conviphashmap[*iter];
+        in_addr tempip;
+        composipkey tempkey=*iter;
+        in_addr ipaddrA;
+        ipaddrA.s_addr=(*iter).ipaddrA;
+        in_addr ipaddrB;
+        ipaddrB.s_addr=(*iter).ipaddrB;
+        cout<<"AddressA: "<<inet_ntoa(ipaddrA)<<"\tAddressB: "<<inet_ntoa(ipaddrB)<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+    }
+    cout<<endl;
+    cout<<"----------------------------------------[TCP]----------------------------------------"<<endl;
+    for (auto iter = convtcpkeys.begin(); iter != convtcpkeys.end(); ++iter){
+        composetcpudpkey temptcpkey=*iter;
+        pcktinfo temppcktinfo=convtcphashmap[temptcpkey];
+        composetcpudpkey tempkey=*iter;
+        in_addr ipaddrA;
+        ipaddrA.s_addr=(*iter).keyA.ipaddr;
+        in_addr ipaddrB;
+        ipaddrB.s_addr=(*iter).keyB.ipaddr;
+        cout<<"AddressA: "<<inet_ntoa(ipaddrA)<<"\tPort A: "<<(*iter).keyA.portnum<<"\tAddressB: "<<inet_ntoa(ipaddrB)<<"\tPort B: "<<(*iter).keyB.portnum<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+    }
+    cout<<endl;
+    cout<<"----------------------------------------[UDP]----------------------------------------"<<endl;
+    for (auto iter = convudpkeys.begin(); iter != convudpkeys.end(); ++iter){
+        composetcpudpkey tempudpkey=*iter;
+        pcktinfo temppcktinfo=convudphashmap[tempudpkey];
+        composetcpudpkey tempkey=*iter;
+        in_addr ipaddrA;
+        ipaddrA.s_addr=(*iter).keyA.ipaddr;
+        in_addr ipaddrB;
+        ipaddrB.s_addr=(*iter).keyB.ipaddr;
+        cout<<"AddressA: "<<inet_ntoa(ipaddrA)<<"\tPort A: "<<(*iter).keyA.portnum<<"\tAddressB: "<<inet_ntoa(ipaddrB)<<"\tPort B: "<<(*iter).keyB.portnum<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
     }
 }
