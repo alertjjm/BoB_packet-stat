@@ -191,14 +191,8 @@ void convudpinsert(composetcpudpkey key, int bytes, int status){
     }
 }
 string mactostring(u_char macaddr[ETHER_ADDR_LEN]){
-	char buf[32]; // enough size
-	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
-		macaddr[0],
-		macaddr[1],
-		macaddr[2],
-		macaddr[3],
-		macaddr[4],
-		macaddr[5]);
+	char buf[32];
+	sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x", macaddr[0], macaddr[1], macaddr[2], macaddr[3], macaddr[4], macaddr[5]);
 	return string(buf);
 }
 int readpackets(pcap_t* handle){
