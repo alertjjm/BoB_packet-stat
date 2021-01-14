@@ -1,7 +1,5 @@
-# pcap-test
+# packet-stat
 
-## TCP일 경우 - 모든 정보 출력
-![image](https://user-images.githubusercontent.com/46064193/88086612-98732b80-cbc2-11ea-9ae4-beda693d46f5.png)
+## ETH, IP, TCP, UDP의 패킷 statistics를 각각 && Conversation으로 출력
+![캡처](https://user-images.githubusercontent.com/46064193/104534950-8f868280-5658-11eb-8b44-29fcc7c02272.PNG)
 ===
-## TCP가 아닐 경우 - 캡처된 바이트만 출력
-![image](https://user-images.githubusercontent.com/46064193/88086734-cc4e5100-cbc2-11ea-9f4e-cf394e777247.png)
