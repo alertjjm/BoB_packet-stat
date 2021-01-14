@@ -323,7 +323,7 @@ int main(int argc, char* argv[]) {
         pcktinfo temppcktinfo=convethhashmap[*iter];
         composethkey tempkey;
         tempkey=*iter;
-        cout<<"AddressA: "<<tempkey.macA<<"\tAddressB: "<<tempkey.macB<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+        cout<<"(AddressA): "<<tempkey.macA<<"\t(AddressB): "<<tempkey.macB<<"\t(Packets A->B): "<<temppcktinfo.tx_packets<<"\t(Bytes A->B): "<<temppcktinfo.tx_bytes<<"\t(Packets B->A): "<<temppcktinfo.rx_packets<<"\t(Bytes B->A): "<<temppcktinfo.rx_bytes<<endl;
     }
     cout<<endl;
     cout<<"----------------------------------------[IP]----------------------------------------"<<endl;
@@ -335,7 +335,7 @@ int main(int argc, char* argv[]) {
         ipaddrA.s_addr=(*iter).ipaddrA;
         in_addr ipaddrB;
         ipaddrB.s_addr=(*iter).ipaddrB;
-        cout<<"AddressA: "<<inet_ntoa(ipaddrA)<<"\tAddressB: "<<inet_ntoa(ipaddrB)<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+        cout<<"(AddressA): "<<inet_ntoa(ipaddrA)<<"\t(AddressB): "<<inet_ntoa(ipaddrB)<<"\t(Packets A->B): "<<temppcktinfo.tx_packets<<"\t(Bytes A->B): "<<temppcktinfo.tx_bytes<<"\t(Packets B->A): "<<temppcktinfo.rx_packets<<"\t(Bytes B->A): "<<temppcktinfo.rx_bytes<<endl;
     }
     cout<<endl;
     cout<<"----------------------------------------[TCP]----------------------------------------"<<endl;
@@ -347,7 +347,7 @@ int main(int argc, char* argv[]) {
         ipaddrA.s_addr=(*iter).keyA.ipaddr;
         in_addr ipaddrB;
         ipaddrB.s_addr=(*iter).keyB.ipaddr;
-        cout<<"AddressA: "<<inet_ntoa(ipaddrA)<<"\tPort A: "<<(*iter).keyA.portnum<<"\tAddressB: "<<inet_ntoa(ipaddrB)<<"\tPort B: "<<(*iter).keyB.portnum<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+        cout<<"(AddressA): "<<inet_ntoa(ipaddrA)<<"\t(Port A): "<<(*iter).keyA.portnum<<"\t(AddressB): "<<inet_ntoa(ipaddrB)<<"\t(Port B): "<<(*iter).keyB.portnum<<"\t(Packets A->B): "<<temppcktinfo.tx_packets<<"\t(Bytes A->B): "<<temppcktinfo.tx_bytes<<"\t(Packets B->A): "<<temppcktinfo.rx_packets<<"\t(Bytes B->A): "<<temppcktinfo.rx_bytes<<endl;
     }
     cout<<endl;
     cout<<"----------------------------------------[UDP]----------------------------------------"<<endl;
@@ -359,6 +359,6 @@ int main(int argc, char* argv[]) {
         ipaddrA.s_addr=(*iter).keyA.ipaddr;
         in_addr ipaddrB;
         ipaddrB.s_addr=(*iter).keyB.ipaddr;
-        cout<<"AddressA: "<<inet_ntoa(ipaddrA)<<"\tPort A: "<<(*iter).keyA.portnum<<"\tAddressB: "<<inet_ntoa(ipaddrB)<<"\tPort B: "<<(*iter).keyB.portnum<<"\tPackets A->B: "<<temppcktinfo.tx_packets<<"\tBytes A->B: "<<temppcktinfo.tx_bytes<<"\tPackets B->A: "<<temppcktinfo.rx_packets<<"\tBytes B->A: "<<temppcktinfo.rx_bytes<<endl;
+        cout<<"(AddressA): "<<inet_ntoa(ipaddrA)<<"\t(Port A): "<<(*iter).keyA.portnum<<"\t(AddressB): "<<inet_ntoa(ipaddrB)<<"\t(Port B): "<<(*iter).keyB.portnum<<"\t(Packets A->B): "<<temppcktinfo.tx_packets<<"\t(Bytes A->B): "<<temppcktinfo.tx_bytes<<"\t(Packets B->A): "<<temppcktinfo.rx_packets<<"\t(Bytes B->A): "<<temppcktinfo.rx_bytes<<endl;
     }
 }
